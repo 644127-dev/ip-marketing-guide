@@ -298,6 +298,31 @@ body{
 .edit-btn-reset{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;display:none}
 .edit-btn:hover{transform:scale(1.1)}
 body.edit-mode .edit-btn-save,body.edit-mode .edit-btn-export,body.edit-mode .edit-btn-reset{display:flex}
+.edit-toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,#a855f7,#7c3aed);
+  color:#fff;padding:12px 28px;border-radius:50px;
+  font-size:0.95rem;font-weight:500;z-index:300;
+  box-shadow:0 8px 32px rgba(168,85,247,0.4);
+  opacity:0;transition:opacity 0.4s ease,pointer-events 0.4s;
+  pointer-events:none;white-space:nowrap;
+}
+.edit-toast.show{opacity:1;pointer-events:auto}
+/* Edit mode visual feedback */
+body.edit-mode .main-content h2,
+body.edit-mode .main-content h3,
+body.edit-mode .main-content h4,
+body.edit-mode .main-content p,
+body.edit-mode .main-content li,
+body.edit-mode .main-content .highlight,
+body.edit-mode .main-content .highlight strong,
+body.edit-mode .quote-card p,
+body.edit-mode .hero-content h1,
+body.edit-mode .hero-content p,
+body.edit-mode .day-badge{
+  outline:1px dashed rgba(168,85,247,0.5);
+  border-radius:4px;cursor:text;
+}
 body.edit-mode .editable{
   outline:2px dashed rgba(245,158,11,0.5);
   outline-offset:4px;
@@ -830,23 +855,13 @@ function scrollToSection(id){
   if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-// Edit mode — 修复版：选择所有内容容器，支持 localStorage 恢复
-const EDIT_SELECTORS = [
-  '.section-content',
-  '.card-body',
-  '.quote-card p',
-  '.hero-content h1',
-  '.hero-content p',
-  '.section-title',
-  '.card h3',
-  '.card p',
-  '.card li',
-  'h2.section-title',
-  '.tag'
-];
+// Edit mode — v3 完整修复：所有文本元素可编辑 + localStorage 恢复
 function getEditables(){
   return document.querySelectorAll(
-    '.main-content p, .main-content h2, .main-content h3, .main-content li, .main-content td, .quote-card p, .hero-content h1, .hero-content p'
+    '.hero-content h1, .hero-content p, .hero-content .hero-sub,' +
+    '.main-content h2, .main-content h3, .main-content h4, .main-content p, .main-content li,' +
+    '.main-content .highlight, .main-content .highlight strong, .main-content .highlight p,' +
+    '.quote-card p, .day-badge, .step-content h4, .compare-card h4, .highlight strong'
   );
 }
 
@@ -855,27 +870,17 @@ function toggleEdit(){
   editMode=!editMode;
   document.body.classList.toggle('edit-mode',editMode);
   const els=getEditables();
+  console.log('Edit mode:',editMode,'Elements found:',els.length);
   if(editMode){
-    els.forEach(el=>{
-      el.setAttribute('contenteditable','true');
-      el.style.outline='1px dashed rgba(168,85,247,0.5)';
-      el.style.borderRadius='4px';
-      el.style.minHeight='1em';
-      el.style.cursor='text';
-    });
-    showToast('已进入编辑模式，点击任意内容即可修改');
+    els.forEach(el=>el.setAttribute('contenteditable','true'));
+    showToast('✏️ 已进入编辑模式，点击任意紫色虚线框内的文字即可修改');
   }else{
-    els.forEach(el=>{
-      el.removeAttribute('contenteditable');
-      el.style.outline='';
-      el.style.cursor='';
-    });
+    els.forEach(el=>el.removeAttribute('contenteditable'));
     showToast('已退出编辑模式');
   }
 }
 
 function saveEdit(){
-  // 保存每个可编辑元素的 innerHTML
   const els=getEditables();
   const data={};
   els.forEach((el,i)=>{
@@ -914,8 +919,11 @@ function showToast(msg){
   toast.className='edit-toast';
   toast.textContent=msg;
   document.body.appendChild(toast);
-  setTimeout(()=>toast.classList.add('show'),10);
-  setTimeout(()=>{toast.classList.remove('show');setTimeout(()=>toast.remove(),400)},2500);
+  requestAnimationFrame(()=>toast.classList.add('show'));
+  setTimeout(()=>{
+    toast.classList.remove('show');
+    setTimeout(()=>toast.remove(),400);
+  },2500);
 }
 
 // 页面加载时恢复保存内容
@@ -929,7 +937,7 @@ window.addEventListener('DOMContentLoaded',()=>{
         const key=el.tagName+':'+i;
         if(data[key]!==undefined) el.innerHTML=data[key];
       });
-    }catch(e){}
+    }catch(e){console.error('Restore failed:',e);}
   }
 });
 </script>
