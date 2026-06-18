@@ -830,52 +830,108 @@ function scrollToSection(id){
   if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-// Edit mode
+// Edit mode — 修复版：选择所有内容容器，支持 localStorage 恢复
+const EDIT_SELECTORS = [
+  '.section-content',
+  '.card-body',
+  '.quote-card p',
+  '.hero-content h1',
+  '.hero-content p',
+  '.section-title',
+  '.card h3',
+  '.card p',
+  '.card li',
+  'h2.section-title',
+  '.tag'
+];
+function getEditables(){
+  return document.querySelectorAll(
+    '.main-content p, .main-content h2, .main-content h3, .main-content li, .main-content td, .quote-card p, .hero-content h1, .hero-content p'
+  );
+}
+
 let editMode=false;
 function toggleEdit(){
   editMode=!editMode;
   document.body.classList.toggle('edit-mode',editMode);
-  const editableEls=document.querySelectorAll('.editable');
+  const els=getEditables();
   if(editMode){
-    editableEls.forEach(el=>el.setAttribute('contenteditable',true));
+    els.forEach(el=>{
+      el.setAttribute('contenteditable','true');
+      el.style.outline='1px dashed rgba(168,85,247,0.5)';
+      el.style.borderRadius='4px';
+      el.style.minHeight='1em';
+      el.style.cursor='text';
+    });
+    showToast('已进入编辑模式，点击任意内容即可修改');
   }else{
-    editableEls.forEach(el=>el.removeAttribute('contenteditable'));
+    els.forEach(el=>{
+      el.removeAttribute('contenteditable');
+      el.style.outline='';
+      el.style.cursor='';
+    });
+    showToast('已退出编辑模式');
   }
 }
+
 function saveEdit(){
-  const content=document.documentElement.outerHTML;
-  localStorage.setItem('ip_knowledge_html_v2',content);
-  showToast('已保存到浏览器本地存储');
+  // 保存每个可编辑元素的 innerHTML
+  const els=getEditables();
+  const data={};
+  els.forEach((el,i)=>{
+    const key=el.tagName+':'+i;
+    data[key]=el.innerHTML;
+  });
+  localStorage.setItem('ip_knowledge_save_v3', JSON.stringify(data));
+  showToast('✅ 已保存到本地浏览器！');
 }
+
 function exportHTML(){
-  const content=document.documentElement.outerHTML;
-  const blob=new Blob([content],{type:'text/html'});
+  const content='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  const blob=new Blob([content],{type:'text/html;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url;a.download='刀刀×圈圈IP营销干货精华版.html';
-  a.click();URL.revokeObjectURL(url);
-  showToast('HTML文件已导出');
+  a.href=url;
+  a.download='刀刀×圈圈IP营销干货精华版（已编辑）.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 HTML文件已导出到下载目录');
 }
+
 function resetEdit(){
-  if(confirm('确定要重置所有修改吗？')){
-    localStorage.removeItem('ip_knowledge_html_v2');
+  if(confirm('确定要重置所有修改吗？此操作不可撤销。')){
+    localStorage.removeItem('ip_knowledge_save_v3');
     location.reload();
   }
 }
+
 function showToast(msg){
+  const existing=document.querySelector('.edit-toast');
+  if(existing)existing.remove();
   const toast=document.createElement('div');
   toast.className='edit-toast';
   toast.textContent=msg;
   document.body.appendChild(toast);
   setTimeout(()=>toast.classList.add('show'),10);
-  setTimeout(()=>{toast.classList.remove('show');setTimeout(()=>toast.remove(),400)},2000);
+  setTimeout(()=>{toast.classList.remove('show');setTimeout(()=>toast.remove(),400)},2500);
 }
 
-// Load saved
-const saved=localStorage.getItem('ip_knowledge_html_v2');
-if(saved){
-  // Optionally restore
-}
+// 页面加载时恢复保存内容
+window.addEventListener('DOMContentLoaded',()=>{
+  const saved=localStorage.getItem('ip_knowledge_save_v3');
+  if(saved){
+    try{
+      const data=JSON.parse(saved);
+      const els=getEditables();
+      els.forEach((el,i)=>{
+        const key=el.tagName+':'+i;
+        if(data[key]!==undefined) el.innerHTML=data[key];
+      });
+    }catch(e){}
+  }
+});
 </script>
 </body>
 </html>
